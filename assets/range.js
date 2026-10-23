@@ -30,5 +30,5 @@ export function withPodiumStreaks(archive){
     run.current=consecutive?run.current+1:1;if(!consecutive)run.start=date;
     if(run.current>run.best){run.best=run.current;run.bestStart=run.start;run.bestEnd=date}run.last=date;
   }
-  return {...archive,drivers:archive.drivers.map(d=>{const r=runs.get(d.name.toLowerCase());return {...d,podiumStreak:r?.best||0,podiumStreakStart:r?.bestStart||'',podiumStreakEnd:r?.bestEnd||''}})};
+  return {...archive,drivers:archive.drivers.map(d=>{const r=runs.get(d.name.toLowerCase());return {...d,podiums:d.places.slice(0,3).reduce((sum,n)=>sum+n,0),podiumStreak:r?.best||0,podiumStreakStart:r?.bestStart||'',podiumStreakEnd:r?.bestEnd||''}})};
 }
