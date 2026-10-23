@@ -16,5 +16,19 @@ export function filterArchive(source,start,end){
   for(const day of calendar){const consecutive=day.drivers>0&&previous?.drivers>0&&day.winner.toLowerCase()===previous.winner.toLowerCase()&&dayNumber(day.date)-dayNumber(previous.date)===1;if(!consecutive)runStart=day.date;day.streak=day.drivers?(consecutive?previous.streak+1:1):0;const winner=totals.get(day.winner.toLowerCase());if(winner&&day.streak>winner.streak){winner.streak=day.streak;winner.streakStart=runStart;winner.streakEnd=day.date}previous=day}
   const drivers=[...totals.values()].map(({days,...d})=>({...d,entries:days.size})).sort((a,b)=>b.points-a.points||a.name.localeCompare(b.name,'en',{sensitivity:'base'}));
   let rank=0,last;drivers.forEach((d,i)=>{if(d.points!==last)rank=i+1;last=d.points;d.rank=rank});
-  return {...source,drivers,calendar,daily,filtered:true,period:{start,end}};
+  return withPodiumStreaks({...source,drivers,calendar,daily,filtered:true,period:{start,end}});
+}
+
+// One podium per driver per UTC day; gaps always break the streak.
+export function withPodiumStreaks(archive){
+  const runs=new Map();
+  for(const [date,position,name] of [...archive.daily].filter(r=>r[1]>=1&&r[1]<=3).sort((a,b)=>a[0].localeCompare(b[0]))){
+    const key=name.toLowerCase();let run=runs.get(key);
+    if(!run){run={last:null,current:0,start:'',best:0,bestStart:'',bestEnd:''};runs.set(key,run)}
+    if(run.last===date)continue;
+    const consecutive=run.last&&dayNumber(date)-dayNumber(run.last)===1;
+    run.current=consecutive?run.current+1:1;if(!consecutive)run.start=date;
+    if(run.current>run.best){run.best=run.current;run.bestStart=run.start;run.bestEnd=date}run.last=date;
+  }
+  return {...archive,drivers:archive.drivers.map(d=>{const r=runs.get(d.name.toLowerCase());return {...d,podiumStreak:r?.best||0,podiumStreakStart:r?.bestStart||'',podiumStreakEnd:r?.bestEnd||''}})};
 }
