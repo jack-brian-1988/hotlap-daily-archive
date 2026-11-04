@@ -17,3 +17,6 @@ async function init(){try{const response=await fetch('trueskill.json',{cache:'no
  $('#ts-search').disabled=$('#ts-status').disabled=false;render();
  }catch(e){$('#ts-error').hidden=false;$('#ts-error').textContent='Unable to load the ratings. '+e.message}}
 init();
+
+$('#ts-info').onclick=()=>$('#ts-info-dialog').showModal();
+$('#ts-info-close').onclick=()=>$('#ts-info-dialog').close();
