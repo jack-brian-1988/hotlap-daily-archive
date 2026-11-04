@@ -2,15 +2,17 @@ import http from 'node:http';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import handler from '../api/data.js';
+import race from '../api/race.js';
+import trueskill from '../api/trueskill.js';
 
 const root = path.resolve('dist');
 const port = Number(process.env.PORT || 4174);
-const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png' };
+const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.mjs':'text/javascript', '.png': 'image/png' };
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost:' + port);
-    if (['/data.json', '/api/data'].includes(url.pathname)) {
-      const result = await handler.fetch(new Request(url, { method: req.method }));
+    if (['/data.json', '/api/data', '/api/race', '/trueskill.json', '/api/trueskill'].includes(url.pathname)) {
+      const result = await (url.pathname==='/api/race'?race:['/trueskill.json','/api/trueskill'].includes(url.pathname)?trueskill:handler).fetch(new Request(url, { method: req.method }));
       res.writeHead(result.status, Object.fromEntries(result.headers));
       res.end(Buffer.from(await result.arrayBuffer()));
       return;
@@ -25,3 +27,4 @@ const server = http.createServer(async (req, res) => {
   } catch { res.writeHead(404).end('Not found'); }
 });
 server.listen(port, '127.0.0.1', () => console.log('Local: http://localhost:' + port));
+

@@ -1,6 +1,6 @@
 # Hotlap Daily — Race Archive
 
-An English community archive for Hotlap Daily, ready to deploy on Vercel. Explore all-time points, wins, streaks, daily top-ten classifications and driver profiles.
+An English community archive for Hotlap Daily, ready to deploy on Vercel. Explore all-time points, wins, streaks, complete daily classifications and TrueSkill ratings and driver profiles.
 
 ## Features
 
@@ -53,10 +53,22 @@ Calendar A5 contains the source update date (`Updated: YYYY-MM-DD`). Wins A3 sta
 
 The browser requests `/data.json`, rewritten by Vercel to the Node function at `/api/data`. Concurrent source reads share a promise, and successful results are reused in memory for at most 30 seconds per warm function instance. Google can also cache its exports. If a refresh fails, a warm instance marks its last successful data as stale; a cold instance returns a temporary error. No built-in historical snapshot is served.
 
-Partial-period standings include top-ten finishers only, because individual participation outside the top ten is not present in the date-level exports. In that view, entries mean unique dates with a scoring result. All Time uses the source's complete participation totals. Historical point allocations and positions remain unchanged, including multiple stored finishes attributed to the same merged driver on one date. Streaks are clipped to the selected dates.
+Partial-period standings include top-ten finishers only, to preserve the existing period-scoring convention; complete participation is now available separately in Race Calendar. In that view, entries mean unique dates with a scoring result. All Time uses the source's complete participation totals. Historical point allocations and positions remain unchanged, including multiple stored finishes attributed to the same merged driver on one date. Streaks are clipped to the selected dates.
 
 ## Credits
 
 Inspired by [Hotlap Daily](https://www.hotlapdaily.com). The car image comes from the [original repository](https://github.com/metapodder/hotlapdaily/blob/main/public/F1-car-8bit.png). The original MIT license notice is retained in `LICENSE`.
 
 This is a community statistics project, not the original game server. It reads the externally stored history and does not call or modify the game's API.
+
+
+
+## TrueSkill and full race calendar
+
+The third navigation tab is TrueSkill. Ratings are read from the original workbook's Full Ratings tab (gid 924913483). The server uses unrounded numeric values from Google Visualization, not rounded display strings. Ranking uses μ − 3σ. Active ranking requires at least ten recorded races and fewer than 30 complete UTC days since the last recorded race. Inactive and provisional drivers keep their ratings and are available in separate views. Activity is recalculated on page open; stored activity/rank columns are ignored. Missing days do not reduce rating. Names are not authenticated account IDs.
+
+Full Results (gid 1751763858) stores every accepted daily classification: ISO UTC date, API position, raw driver name, best valid lap seconds, race ID, normalized name. Its first row is a header. `/api/race?date=YYYY-MM-DD` queries only the selected date from the stored sheet. The calendar supports search and pagination across the full field, without calling the game API. Keep the separate `daily` top-ten data used for points to preserve historical point conventions.
+
+`/trueskill.json` is rewritten to `/api/trueskill`. Both new functions support GET/HEAD, validate source responses, coalesce concurrent reads and cache for 30 seconds per warm instance with bounded cache entries. Source failures produce explicit errors. Optional server variables `FULL_RESULTS_SHEET_GID` and `FULL_RATINGS_SHEET_GID` override the defaults when copying the workbook. The spreadsheet ID stays server-side in `GOOGLE_SHEETS_ID`.
+
+The workbook must continue to be populated by its separate import process. These read-only website endpoints do not fetch new game results or recalculate ratings. The initial full-field import covers completed races through 2026-11-03; stale rating coverage is shown to visitors. Updating the older four tabs alone does not update Full Results or Full Ratings.
