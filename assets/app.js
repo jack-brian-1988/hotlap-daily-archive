@@ -1,4 +1,4 @@
-import {filterArchive,quickRange,withPodiumStreaks} from './range.js';
+import {filterArchive,quickRange,withPodiumStreaks,monthlyChampionships} from './range.js';
 import {mountDateControl,fillMonths} from './date-controls.js';
 'use strict';
 const $=s=>document.querySelector(s),fmt=n=>n.toLocaleString('en-US'),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -8,7 +8,7 @@ const dateLabel=s=>new Date(s+'T12:00:00Z').toLocaleDateString('en-GB',{day:'num
 try{if(localStorage.getItem('archive-theme')==='dark')document.body.classList.add('dark')}catch{}
 function themeLabel(){const dark=document.body.classList.contains('dark');$('#theme').setAttribute('aria-checked',String(dark));$('#theme-icon').innerHTML=dark?'<path d="M21 12.8A9 9 0 0 1 11.2 3 9 9 0 1 0 21 12.8Z"/>':'<circle cx="12" cy="12" r="4"/><path d="M12 1v2m0 18v2M1 12h2m18 0h2M4.2 4.2l1.4 1.4m12.8 12.8 1.4 1.4M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>';}themeLabel();
 $('#theme').onclick=()=>{document.body.classList.toggle('dark');themeLabel();try{localStorage.setItem('archive-theme',document.body.classList.contains('dark')?'dark':'light')}catch{}};
-function view(){const current=['standings','calendar','records'].includes(location.hash.slice(1))?location.hash.slice(1):'standings';document.querySelectorAll('.view').forEach(s=>s.hidden=s.id!==current);document.querySelectorAll('[data-view]').forEach(a=>a.classList.toggle('active',a.dataset.view===current))}window.addEventListener('hashchange',view);view();
+function view(){const current=['standings','monthly','calendar','records'].includes(location.hash.slice(1))?location.hash.slice(1):'standings';document.querySelectorAll('.view').forEach(s=>s.hidden=s.id!==current);document.querySelectorAll('[data-view]').forEach(a=>a.classList.toggle('active',a.dataset.view===current))}window.addEventListener('hashchange',view);view();
 function rankDrivers(){
  const numeric=sort!=='name';
  const ranks=new Map();let rank=0,last;
@@ -61,6 +61,26 @@ async function init(){try{
   $('#date-from').value=first;$('#date-to').value=last;
   const years={firstYear:Math.min(Number(first.slice(0,4)),Number(today.slice(0,4))),lastYear:Math.max(Number(last.slice(0,4)),Number(today.slice(0,4)))};
   fromControl=mountDateControl($('#from-control'),$('#date-from'),{...years,label:'From'});toControl=mountDateControl($('#to-control'),$('#date-to'),{...years,label:'To'});
-  $('#date-controls').disabled=false;$('#reset-range').onclick();
+  initChampionships();$('#date-controls').disabled=false;$('#reset-range').onclick();
 }catch(error){$('#load-error').hidden=false;$('#load-error').textContent='Google Sheets is temporarily unavailable. Please reload the page to try again.';$('#range-summary').textContent='Date filtering is available once results have loaded.';console.error(error)}}
 init();
+
+let championships=[];
+const monthLabel=value=>new Date(value+'-01T12:00:00Z').toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'});
+function renderChampionship(){
+ const c=championships.find(c=>c.month===$('#championship-month').value);if(!c)return;
+ $('#monthly-title').textContent=monthLabel(c.month)+' standings';
+ $('#championship-status').textContent=(c.closed?'Closed month':'Provisional · month in progress')+' · '+c.raceDays+' race days';
+ $('#monthly-coverage').textContent='Archived races: '+dateLabel(c.first)+' — '+dateLabel(c.last)+'. Calendar month: '+dateLabel(c.start)+' — '+dateLabel(c.end)+'.';
+ $('#monthly-body').innerHTML=c.drivers.map(d=>'<tr><td>'+d.rank+'</td><td>'+esc(d.name)+'</td><td>'+fmt(d.points)+'</td><td>'+fmt(d.wins)+'</td><td>'+fmt(d.podiums)+'</td><td>'+fmt(d.entries)+'</td></tr>').join('')||'<tr><td colspan="6">No scoring results.</td></tr>';
+ document.querySelectorAll('[data-championship]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.championship===c.month)));
+}
+function initChampionships(){
+ championships=monthlyChampionships(sourceData);
+ $('#championship-month').innerHTML=championships.map(c=>'<option value="'+c.month+'">'+monthLabel(c.month)+'</option>').join('');
+ $('#championship-month').disabled=!championships.length;
+ $('#monthly-champions').innerHTML=championships.map(c=>'<button type="button" class="monthly-champion" data-championship="'+c.month+'"><small>'+monthLabel(c.month)+' · '+(c.closed?'CLOSED':'PROVISIONAL')+'</small><strong>'+esc(c.champions.map(d=>d.name).join(' / '))+'</strong><span>'+fmt(c.champions[0]?.points||0)+' PTS · '+c.raceDays+' race days</span></button>').join('');
+ $('#championship-month').onchange=renderChampionship;
+ $('#monthly-champions').onclick=e=>{const b=e.target.closest('[data-championship]');if(b){$('#championship-month').value=b.dataset.championship;renderChampionship()}};
+ renderChampionship();
+}

@@ -32,3 +32,12 @@ export function withPodiumStreaks(archive){
   }
   return {...archive,drivers:archive.drivers.map(d=>{const r=runs.get(d.name.toLowerCase());return {...d,podiums:d.places.slice(0,3).reduce((sum,n)=>sum+n,0),podiumStreak:r?.best||0,podiumStreakStart:r?.bestStart||'',podiumStreakEnd:r?.bestEnd||''}})};
 }
+
+export function monthlyChampionships(source,today=new Date().toISOString().slice(0,10)){
+ const months=[...new Set(source.calendar.filter(d=>d.drivers>0).map(d=>d.date.slice(0,7)))].sort().reverse();
+ return months.map(month=>{
+  const [year,m]=month.split('-').map(Number),start=month+'-01',end=new Date(Date.UTC(year,m,0)).toISOString().slice(0,10);
+  const result=filterArchive(source,start,end),days=result.calendar.filter(d=>d.drivers>0);
+  return {month,start,end,closed:end<today,raceDays:days.length,first:days[0]?.date,last:days.at(-1)?.date,drivers:result.drivers,champions:result.drivers.filter(d=>d.rank===1)};
+ });
+}
