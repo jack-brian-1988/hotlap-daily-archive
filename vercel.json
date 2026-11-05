@@ -12,6 +12,9 @@
     },
     "api/trueskill.js": {
       "maxDuration": 60
+    },
+    "api/trueskill-history.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

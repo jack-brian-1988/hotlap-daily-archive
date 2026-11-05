@@ -11,5 +11,11 @@
     "dev": "node --env-file-if-exists=.env.local scripts/serve.mjs",
     "start": "npm run dev",
     "test": "node scripts/build.mjs && node --test scripts/*.test.mjs"
+  },
+  "dependencies": {
+    "ts-trueskill": "5.1.0"
+  },
+  "overrides": {
+    "mathjs": "15.2.0"
   }
 }
