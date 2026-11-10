@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {fetchRace,planUpdate} from '../lib/update-plan.js';
+import {applyDaily,prepareWrite} from '../lib/update-write.js';
 const date='2026-11-09', old='2026-11-08';
 const race=[
   [date,1,'Alice',4.1,'a9','alice'],
@@ -52,4 +53,43 @@ test('paginates only when total exceeds the first page',async()=>{
     return Response.json({date,total:2,startRank:i+1,leaderboard:[{driverName:race[i][2],bestLap:race[i][3],raceId:race[i][4]}]});
   });
   assert.deepEqual(rows,race);assert.deepEqual(offsets,[0,1]);
+});
+const writableFixture=()=>({...fixture(),metadata:[],grids:Object.fromEntries(
+  ['Points','Wins','Calendar','Daily Top 10','Full Results','Full Ratings'].map((x,i)=>[x,{rows:i<4?8:2}]))});
+test('writer appends names only for new drivers, then sorts complete rows in a separate batch',async()=>{
+  const old=writableFixture(), plan=await planUpdate(old,'2026-11-10',async()=>race);
+  const q=prepareWrite(old,plan,'fixture');
+  assert.equal(q.apply[0].createDeveloperMetadata.developerMetadata.metadataKey,'hotlapdaily.update-lock.v1');
+  assert.equal(q.apply[1].createDeveloperMetadata.developerMetadata.metadataKey,'hotlapdaily.update-day.v1');
+  assert.ok(!q.apply.some(x=>x.sortRange));
+  assert.deepEqual(q.sort.filter(x=>x.sortRange).map(x=>x.sortRange.range.endColumnIndex),[16,8]);
+  const p=q.apply.filter(x=>x.updateCells?.range?.sheetId===801946561);
+  assert.ok(p.filter(x=>x.updateCells.range.startColumnIndex===1).every(x=>x.updateCells.range.startRowIndex===8));
+  assert.equal(q.finish.at(-1).deleteDeveloperMetadata.dataFilter.developerMetadataLookup.metadataValue,q.lock.metadataValue);
+});
+test('failure during recalculation verification keeps the lock and never finalizes',async()=>{
+  const old=writableFixture();let reads=0;
+  const writes=[];
+  await assert.rejects(applyDaily({today:'2026-11-10',fetchDay:async()=>race,client:{
+    snapshot:async()=>{reads++;return old},batch:async q=>writes.push(q),
+  }}),/lock retained/);
+  assert.equal(reads,3);assert.equal(writes.length,1);
+  assert.ok(!writes[0].some(x=>x.deleteDeveloperMetadata));
+});
+test('a fully verified write finalizes only after readback and sorting',async()=>{
+  const old=writableFixture(),plan=await planUpdate(old,'2026-11-10',async()=>race);
+  let reads=0,meta;const writes=[];
+  const client={
+    snapshot:async opts=>{
+      if(++reads<=2)return old;
+      if(opts?.appendCount!==undefined)assert.equal(opts.appendCount,2);
+      return {...old,...plan,stored:race,metadata:opts?.pending?[meta]:[],
+        calendarNotes:plan.notes.map(n=>({...n,status:opts?.pending?'updating':'final'}))};
+    },
+    batch:async q=>{writes.push(q);if(writes.length===1)meta=q[0].createDeveloperMetadata.developerMetadata;},
+  };
+  const result=await applyDaily({today:'2026-11-10',fetchDay:async()=>race,client});
+  assert.equal(reads,5);assert.equal(writes.length,3);
+  assert.equal(result.status,'updated');
+  assert.equal(result.totals.entries,3);
 });

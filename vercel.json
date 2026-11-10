@@ -18,6 +18,18 @@
     },
     "api/update-dry-run.js": {
       "maxDuration": 120
+    },
+    "api/update-scheduled.js": {
+      "maxDuration": 240,
+      "experimentalTriggers": [{ "type": "schedule/v1beta" }]
+    }
+  },
+  "schedules": {
+    "hotlap-daily-update": {
+      "schedule": "15 0 * * *",
+      "timezone": "Etc/UTC",
+      "jitter": 15,
+      "function": "api/update-scheduled"
     }
   },
   "rewrites": [
