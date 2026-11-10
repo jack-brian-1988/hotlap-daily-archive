@@ -15,6 +15,9 @@
     },
     "api/trueskill-history.js": {
       "maxDuration": 60
+    },
+    "api/update-dry-run.js": {
+      "maxDuration": 120
     }
   },
   "rewrites": [
